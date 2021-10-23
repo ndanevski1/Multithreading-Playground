@@ -2,12 +2,21 @@
 #include <vector>
 #include <thread>
 #include <numeric>
+#include <future>
 
 using namespace std::chrono;
 
+// used for threads
 void sum_in_range(long long &sum, int start, int end) {
     for(int i = start; i < end; i++)
         sum += i;
+}
+// used for async tasks
+long long get_sum_in_range(int start, int end) {
+    long long sum = 0;
+    for(int i = start; i < end; i++)
+        sum += i;
+    return sum;
 }
 long long single_thread(int n) {
     long long sum = 0;
@@ -44,7 +53,22 @@ long long x_threads(int n, int num_of_threads) {
     long long sum = std::accumulate(partial_sums.begin(), partial_sums.end(), (long long) 0);
     return sum;
 }
+
+long long tasks_sum(int n, int num_of_tasks) {
+    std::vector<std::future<long long>> tasks;
+    int step = n / num_of_tasks;
+    for(int i = 0; i < num_of_tasks - 1; i++) {
+        tasks.push_back(std::async(get_sum_in_range, i * step, (i + 1) * step));
+    }
+    tasks.push_back(std::async(get_sum_in_range, (num_of_tasks-1) * step, n));
+
+    long long sum = 0;
+    for(auto &t: tasks)
+        sum += t.get();
+    return sum;
+}
 int main() {
+    std::cout << "~~~~~THREADS~~~~~" << std::endl;
     int n = 1000001;
     auto start = high_resolution_clock::now();
     long long sum_single_thread = single_thread(n);
@@ -63,6 +87,14 @@ int main() {
         stop = high_resolution_clock::now();
         duration = duration_cast<microseconds>(stop - start).count();
         std::cout << i << " threads: time = " << duration << ", sum = " << curr_sum << std::endl;
-     
+    }
+
+    std::cout << "~~~~~TASKS~~~~~" << std::endl;
+    for(int i = 1; i < 8; i++) {
+        start = high_resolution_clock::now(); 
+        long long curr_sum = tasks_sum(n, i);
+        stop = high_resolution_clock::now();
+        duration = duration_cast<microseconds>(stop - start).count();
+        std::cout << i << " threads: time = " << duration << ", sum = " << curr_sum << std::endl;
     }
 }
